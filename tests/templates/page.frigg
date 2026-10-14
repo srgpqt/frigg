@@ -1,0 +1,4 @@
+{# args: names: []string #}
+<.card title="Static" wide><p>{len(names)} names</p></.card>
+<.card title={name} :for={name in names} />
+{card("Direct")}

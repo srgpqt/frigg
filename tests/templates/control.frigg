@@ -1,0 +1,17 @@
+{# args: n: int, items: []string, lookup: map[string]int #}
+{if n > 2}
+big
+{else if n > 1}
+medium
+{else}
+small
+{/if}
+<ul>
+  {for item, i in items}
+  <li>{i}: {item}</li>
+  {/for}
+</ul>
+<i :for={item in items} :if={item != "skip"} title={item}>{item}</i>
+{for i := 0; i < 2; i += 1}[{i}]{/for}
+{for row in 0..<2}{for col in 0..<2}({row},{col}){/for}{/for}
+{if value, ok := lookup["key"]; ok}found {value}{else}not found: {ok}{/if}

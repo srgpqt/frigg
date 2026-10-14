@@ -1,0 +1,14 @@
+{# args: title: string, children: frigg.Node #}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{title}</title>
+    <style>
+      body { font-family: sans-serif; }
+    </style>
+  </head>
+  <body>
+    {children}
+  </body>
+</html>

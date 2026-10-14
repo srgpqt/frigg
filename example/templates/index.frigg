@@ -1,0 +1,19 @@
+{# args: title: string, users: []User, list_attrs: []frigg.Attribute = nil #}
+{# import "core:fmt" #}
+{# Comments like this one never reach the output. #}
+<.layout title={title}>
+  <h1 class="title" id={fmt.tprintf("page-%d", len(users))}>Hello, {title}!</h1>
+  {if len(users) == 0}
+    <p>Nobody is here.</p>
+  {else}
+    <ul {list_attrs}>
+      <li :for={user, i in users} :if={user.active} class={"odd" if i % 2 == 1 else "even"}>
+        <.user_card user={user} highlighted={i == 0} />
+      </li>
+    </ul>
+  {/if}
+  <input type="checkbox" checked={len(users) > 1} disabled>
+  <script>
+    if (1 < 2) { console.log("{not code}") }
+  </script>
+</.layout>

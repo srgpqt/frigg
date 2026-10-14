@@ -1,0 +1,8 @@
+{# args: user: User, highlighted := false #}
+<div class={"card highlighted" if highlighted else "card"}>
+  <strong>{user.name}</strong> ({user.age})
+  {if email, ok := user.email.?; ok}
+    <a href={fmt.tprintf("mailto:%s", email)}>{email}</a>
+  {/if}
+  {for tag in user.tags}<span class='tag'>{tag}</span>{/for}
+</div>

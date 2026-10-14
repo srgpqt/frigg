@@ -1,0 +1,7 @@
+{# args: (
+  id: string,
+  on: bool,
+  extra: []frigg.Attribute = nil,
+  data: map[string]string = nil,
+) #}
+<a class="btn" title='say "hi"' data-x=plain hidden id={id} checked={on} disabled={!on} missing={frigg.Node(nil)} raw={frigg.Safe_String("a&b")} {extra} {data}>x</a>

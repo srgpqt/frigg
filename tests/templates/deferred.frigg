@@ -1,0 +1,3 @@
+{# args: counter: ^int #}
+{# import "core:fmt" #}
+<p>{bump(counter)}</p><p data-n={fmt.tprint(bump(counter))}></p>

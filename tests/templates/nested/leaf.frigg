@@ -1,0 +1,2 @@
+{# args: label: string #}
+<b>{label}</b>

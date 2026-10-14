@@ -1,0 +1,2 @@
+{# args: title: string, children: frigg.Node = nil, wide := false #}
+<section class={"wide" if wide else "narrow"}><h2>{title}</h2>{children}</section>

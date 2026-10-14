@@ -1,0 +1,2 @@
+{# args: s: string, n: int, safe: frigg.Safe_String, flag: bool, list: []string #}
+<p>{s}|{n}|{safe}|{flag}|{list}|{n * 2 + 1}|{"}" + `{`}|{'}'}</p>

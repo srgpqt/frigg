@@ -1,0 +1,6 @@
+{# args: counts: map[string]int #}
+<table>
+  {for name, count in counts}
+    <tr><td>{name}</td><td>{count}</td></tr>
+  {/for}
+</table>

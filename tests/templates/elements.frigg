@@ -1,0 +1,5 @@
+<br><br/><img src="a.png"><div/><x-widget></x-widget>
+<style>
+  a > b { color: red; }
+</style>
+<SCRIPT>if (a < b) { f("</div>{x}") }</SCRIPT>
