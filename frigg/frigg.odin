@@ -121,10 +121,20 @@ Converts any value to a `Node`.
 Node variants are passed through unchanged, so `Safe_String`s, elements and
 nested templates keep their meaning. Any other value is formatted with
 `core:fmt` into a `string` node, which is HTML escaped on serialization.
-Formatting allocates with `context.temp_allocator`.
+
+A `[]Node` is copied, since it may be a slice literal living on the stack of
+the code that returns it. Copies and formatting allocate with
+`context.temp_allocator`.
 */
 to_node :: proc(value: $T) -> Node {
-	when T == Node || T == Safe_String || T == string || T == bool || T == ^Element || T == Code || T == Template || T == []Node {
+	when T == []Node {
+		return clone_slice(value)
+	} else when T == Node {
+		if list, is_list := value.([]Node); is_list {
+			return clone_slice(list)
+		}
+		return value
+	} else when T == Safe_String || T == string || T == bool || T == ^Element || T == Code || T == Template {
 		return value
 	} else when T == [dynamic]Node {
 		return value[:]
@@ -142,11 +152,12 @@ Converts a value to a list of attributes, for `<div {value}>`.
 
 Accepts `[]Attribute`, `[dynamic]Attribute`, a single `Attribute`, and
 `map[string]string` (values are HTML escaped, attributes are sorted by name).
-Conversions allocate with `context.temp_allocator`.
+A `[]Attribute` is copied, since it may be a slice literal living on the stack
+of the code that returns it. Conversions allocate with `context.temp_allocator`.
 */
 to_attributes :: proc(value: $T) -> []Attribute {
 	when T == []Attribute {
-		return value
+		return clone_slice(value)
 	} else when T == [dynamic]Attribute {
 		return value[:]
 	} else when T == Attribute {
@@ -278,6 +289,14 @@ walk :: proc(node: Node, visit: Visitor, user_data: rawptr = nil, depth := 0) {
 			walk(child, visit, user_data, depth + 1)
 		}
 	}
+}
+
+// Copies a slice into `context.temp_allocator`.
+@(private)
+clone_slice :: proc(s: []$E) -> []E {
+	clone := make([]E, len(s), context.temp_allocator)
+	copy(clone, s)
+	return clone
 }
 
 @(private)

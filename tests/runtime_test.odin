@@ -195,3 +195,28 @@ walk_visits_parents_first :: proc(t: ^testing.T) {
 	frigg.walk(tree, record_visit, &state)
 	testing.expect_value(t, len(state.visits), 5)
 }
+
+// Slices may be literals on the stack of the code returning them: they are copied.
+@(test)
+returned_slices_are_copied :: proc(t: ^testing.T) {
+	attributes := []frigg.Attribute{{"a", true}}
+	copied := frigg.to_attributes(attributes)
+	testing.expect(t, raw_data(copied) != raw_data(attributes))
+	testing.expect_value(t, len(copied), 1)
+	testing.expect_value(t, copied[0].name, "a")
+
+	nodes := []frigg.Node{string("x")}
+	for node in ([]frigg.Node{frigg.to_node(nodes), frigg.to_node(frigg.Node(nodes))}) {
+		list := node.([]frigg.Node) or_else nil
+		testing.expect(t, list != nil && raw_data(list) != raw_data(nodes))
+		testing.expect_value(t, render(node), "x")
+	}
+
+	code := frigg.Code{proc(_: rawptr) -> frigg.Node {
+		return frigg.to_node([]frigg.Node{string("from"), frigg.Safe_String(" the stack")})
+	}, nil}
+	spread := frigg.Spread{proc(_: rawptr) -> []frigg.Attribute {
+		return frigg.to_attributes([]frigg.Attribute{{"data-a", string("1")}, {"data-b", true}})
+	}, nil}
+	testing.expect_value(t, render(frigg.element("p", {{"", spread}}, {code})), `<p data-a="1" data-b>from the stack</p>`)
+}
