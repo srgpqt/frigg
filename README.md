@@ -16,18 +16,6 @@ serialized to HTML.
 odin build compiler -out:bin/frigg
 ```
 
-## Testing
-
-```sh
-odin test compiler   # parser and code generator
-odin test tests      # runtime library, and rendering of compiled templates
-```
-
-`tests/templates.odin` is generated from `tests/templates/*.frigg` and checked
-in. After changing those templates or the code generator, regenerate it with
-`./bin/frigg -r -import:./frigg tests/templates`; `odin test compiler` fails
-while it is stale. `./test.sh` builds the compiler, regenerates, and runs both.
-
 ## Usage
 
 ```sh
@@ -194,3 +182,15 @@ serialization use `context.temp_allocator`.
   generated code.
 - A variable used only by code inside a nested loop still counts as unused
   for `-vet` if nothing else in its own scope reads it.
+
+## Testing
+
+```sh
+odin test compiler   # parser and code generator
+odin test tests      # runtime library, and rendering of compiled templates
+```
+
+`tests/templates.odin` is generated from `tests/templates/*.frigg` and checked
+in. After changing those templates or the code generator, regenerate it with
+`./bin/frigg -r -import:./frigg tests/templates`; `odin test compiler` fails
+while it is stale. `./test.sh` builds the compiler, regenerates, and runs both.
