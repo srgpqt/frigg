@@ -95,6 +95,26 @@ void_and_raw_text_elements :: proc(t: ^testing.T) {
 }
 
 @(test)
+double_brace_code :: proc(t: ^testing.T) {
+	testing.expect_value(
+		t,
+		render(raw_code("<Bob>", "red", `{"debug": true}`)),
+		"<p title=\"&lt;Bob&gt;\" lang>&lt;Bob&gt; = &lt;Bob&gt;</p>\n" +
+		"<style>\n  p { color: red; }\n</style>\n" +
+		"<script>\n  const config = {\"debug\": true};\n  const name = \"&lt;Bob&gt;\";\n  if (config) { console.log(\"{{literal}}\") }\n" +
+		"  console.log(\"no modules\");\n</script>\n\n",
+	)
+	testing.expect_value(
+		t,
+		render(raw_code("x", "blue", "{}", {"nav", "grid"})),
+		"<p title=\"x\" lang>x = x</p>\n" +
+		"<style>\n  p { color: blue; }\n  .nav { display: block; }\n  .grid { display: block; }\n</style>\n" +
+		"<script>\n  const config = {};\n  const name = \"x\";\n  if (config) { console.log(\"{{literal}}\") }\n" +
+		"  load([\"nav\", \"grid\"]);\n</script>\n<ul><li>nav</li><li>grid</li></ul>\n",
+	)
+}
+
+@(test)
 code_runs_on_serialization_only :: proc(t: ^testing.T) {
 	counter := 0
 	tree := deferred(&counter)

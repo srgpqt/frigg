@@ -75,6 +75,9 @@ Parser :: struct {
 	src:   string,
 	pos:   int,
 	error: string, // first error encountered
+	// Set while parsing the content of a raw text element, which ends at `raw_end`.
+	raw:     bool,
+	raw_end: int,
 }
 
 Terminator_Kind :: enum {
@@ -94,7 +97,7 @@ Terminator :: struct {
 
 VOID_ELEMENTS :: []string{"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 
-// Elements whose content is raw text: no tags and no `{code}` inside.
+// Elements whose content is raw text: no tags, and only `{{code}}` is code.
 RAW_TEXT_ELEMENTS :: []string{"script", "style"}
 
 parse_template :: proc(path, name, src: string) -> (tmpl: ^Template, error: string) {
@@ -104,14 +107,19 @@ parse_template :: proc(path, name, src: string) -> (tmpl: ^Template, error: stri
 	p := Parser{tmpl = tmpl, src = src}
 	nodes, term := parse_nodes(&p)
 	tmpl.nodes = nodes
+	expect_end(&p, term)
+	return tmpl, p.error
+}
+
+// Reports a terminator found where the content should simply end.
+expect_end :: proc(p: ^Parser, term: Terminator) {
 	switch term.kind {
 	case .EOF:
-	case .Close_Tag: fail(&p, term.pos, "unexpected closing tag </%s>", term.text)
-	case .Else:      fail(&p, term.pos, "{{else}} without a matching {{if}}")
-	case .End_If:    fail(&p, term.pos, "{{/if}} without a matching {{if}}")
-	case .End_For:   fail(&p, term.pos, "{{/for}} without a matching {{for}}")
+	case .Close_Tag: fail(p, term.pos, "unexpected closing tag </%s>", term.text)
+	case .Else:      fail(p, term.pos, "{{else}} without a matching {{if}}")
+	case .End_If:    fail(p, term.pos, "{{/if}} without a matching {{if}}")
+	case .End_For:   fail(p, term.pos, "{{/for}} without a matching {{for}}")
 	}
-	return tmpl, p.error
 }
 
 // Records the first error and moves to the end of the source so that parsing stops.
@@ -144,10 +152,20 @@ parse_nodes :: proc(p: ^Parser) -> (nodes: [dynamic]Node, term: Terminator) {
 		}
 	}
 
-	for p.pos < len(p.src) {
+	// The content of a raw text element is text, except for `{{...}}`.
+	limit := p.raw_end if p.raw else len(p.src)
+	for p.pos < limit {
 		start := p.pos
-		rest := p.src[p.pos:]
+		rest := p.src[p.pos:limit]
 		switch {
+		case p.raw && strings.has_prefix(rest, "\\{{"):
+			strings.write_string(&text, "{{")
+			p.pos += 3
+
+		case p.raw && !strings.has_prefix(rest, "{{"):
+			strings.write_byte(&text, rest[0])
+			p.pos += 1
+
 		case strings.has_prefix(rest, "\\{"):
 			strings.write_byte(&text, '{')
 			p.pos += 2
@@ -163,8 +181,13 @@ parse_nodes :: proc(p: ^Parser) -> (nodes: [dynamic]Node, term: Terminator) {
 			trim_standalone(p, &text, start)
 
 		case rest[0] == '{':
-			code := strings.trim_space(scan_braces(p))
+			code, double := scan_code(p)
+			code = strings.trim_space(code)
 			switch {
+			case p.pos > limit:
+				fail(p, start, "'{{{{' is not closed before the end of the element")
+			case code == "" && double:
+				fail(p, start, "empty {{{{}}}}")
 			case code == "":
 				fail(p, start, "empty {{}}, write \\{{ for a literal brace")
 			case code == "/if" || code == "/for":
@@ -363,7 +386,8 @@ parse_element :: proc(p: ^Parser) -> Node {
 			break attrs
 		case p.src[p.pos] == '{':
 			attr.kind = .Spread
-			attr.value = strings.trim_space(scan_braces(p))
+			code, _ := scan_code(p)
+			attr.value = strings.trim_space(code)
 			if attr.value == "" {
 				fail(p, attr_start, "empty {{}} in <%s>", elem.tag)
 			}
@@ -396,7 +420,8 @@ parse_element :: proc(p: ^Parser) -> Node {
 					p.pos += end + 2
 				case '{':
 					attr.kind = .Expr
-					attr.value = strings.trim_space(scan_braces(p))
+					code, _ := scan_code(p)
+					attr.value = strings.trim_space(code)
 					if attr.value == "" {
 						fail(p, attr_start, "empty value of attribute '%s'", attr.name)
 					}
@@ -440,10 +465,14 @@ parse_element :: proc(p: ^Parser) -> Node {
 			fail(p, start, "<%s> is never closed", elem.tag)
 			return elem
 		}
-		if end > p.pos {
-			append(&elem.children, Text{p.src[p.pos:end]})
+		p.raw, p.raw_end = true, end
+		term: Terminator
+		elem.children, term = parse_nodes(p)
+		p.raw = false
+		expect_end(p, term)
+		if p.error == "" {
+			p.pos = end + close + 1
 		}
-		p.pos = end + close + 1
 	case:
 		term: Terminator
 		elem.children, term = parse_nodes(p)
@@ -496,8 +525,28 @@ trim_standalone :: proc(p: ^Parser, text: ^strings.Builder, start: int) {
 	p.pos = min(j + 1, len(p.src))
 }
 
+// Scans `{code}` or `{{code}}` starting at `p.pos` and returns the code.
+scan_code :: proc(p: ^Parser) -> (code: string, double: bool) {
+	if !strings.has_prefix(p.src[p.pos:], "{{") {
+		return scan_braces(p), false
+	}
+	start := p.pos
+	p.pos += 1
+	code = scan_braces(p, double = true)
+	if p.error != "" {
+		return "", true
+	}
+	if p.pos >= len(p.src) || p.src[p.pos] != '}' {
+		fail(p, start, "'{{{{' must be closed by '}}}}'")
+		return "", true
+	}
+	p.pos += 1
+	return code, true
+}
+
 // Scans a balanced `{...}` starting at `p.pos` and returns what is between the braces.
-scan_braces :: proc(p: ^Parser) -> string {
+// `double` is set when that brace is the inner one of a `{{`.
+scan_braces :: proc(p: ^Parser, double := false) -> string {
 	start := p.pos
 	depth := 0
 	for i := start; i < len(p.src); i += 1 {
@@ -519,7 +568,11 @@ scan_braces :: proc(p: ^Parser) -> string {
 			}
 		}
 	}
-	fail(p, start, "unterminated '{{', write \\{{ for a literal brace")
+	if double {
+		fail(p, start - 1, "unterminated '{{{{'")
+	} else {
+		fail(p, start, "unterminated '{{', write \\{{ for a literal brace")
+	}
 	return ""
 }
 

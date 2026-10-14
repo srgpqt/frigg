@@ -304,6 +304,126 @@ page :: proc(names: []string, allocator := context.temp_allocator) -> frigg.Temp
 	return frigg.Template{"page", _n1[:]}
 }
 
+// Generated from templates/raw_code.frigg
+raw_code :: proc(name: string, color: string, config: frigg.Safe_String, modules: []string = nil, allocator := context.temp_allocator) -> frigg.Template {
+	_Env0 :: struct {
+		name: type_of(name),
+		color: type_of(color),
+		config: type_of(config),
+		modules: type_of(modules),
+	}
+	_env0 := new_clone(_Env0{name = name, color = color, config = config, modules = modules}, allocator)
+	_n1 := make([dynamic]frigg.Node, 0, 8, allocator)
+	_a2 := make([]frigg.Attribute, 2, allocator)
+	_a2[0] = {"title", frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:2
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(name)
+	}, _env0}}
+	_a2[1] = {"", frigg.Spread{proc(_p: rawptr) -> []frigg.Attribute { // raw_code.frigg:2
+		using _e := (^_Env0)(_p)
+		return frigg.to_attributes([]frigg.Attribute{{"lang", true}})
+	}, _env0}}
+	_n3 := make([dynamic]frigg.Node, 0, 3, allocator)
+	append(&_n3, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:2
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(name)
+	}, _env0})
+	append(&_n3, frigg.Safe_String(" = "))
+	append(&_n3, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:2
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(name)
+	}, _env0})
+	append(&_n1, frigg.element("p", _a2, _n3[:], false, allocator))
+	append(&_n1, frigg.Safe_String("\n"))
+	_n4 := make([dynamic]frigg.Node, 0, 4, allocator)
+	append(&_n4, frigg.Safe_String("\n  p { color: "))
+	append(&_n4, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:4
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(color)
+	}, _env0})
+	append(&_n4, frigg.Safe_String("; }\n"))
+	for module in modules {
+		_Env5 :: struct {
+			name: type_of(name),
+			color: type_of(color),
+			config: type_of(config),
+			modules: type_of(modules),
+			module: type_of(module),
+		}
+		_env5 := new_clone(_Env5{name = name, color = color, config = config, modules = modules, module = module}, allocator)
+		append(&_n4, frigg.Safe_String("  ."))
+		append(&_n4, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:6
+			using _e := (^_Env5)(_p)
+			return frigg.to_node(module)
+		}, _env5})
+		append(&_n4, frigg.Safe_String(" { display: block; }\n"))
+	}
+	append(&_n1, frigg.element("style", nil, _n4[:], false, allocator))
+	append(&_n1, frigg.Safe_String("\n"))
+	_n6 := make([dynamic]frigg.Node, 0, 6, allocator)
+	append(&_n6, frigg.Safe_String("\n  const config = "))
+	append(&_n6, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:10
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(config)
+	}, _env0})
+	append(&_n6, frigg.Safe_String(";\n  const name = \""))
+	append(&_n6, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:11
+		using _e := (^_Env0)(_p)
+		return frigg.to_node(name)
+	}, _env0})
+	append(&_n6, frigg.Safe_String("\";\n  if (config) { console.log(\"{{literal}}\") }\n"))
+	if len(modules) > 0 {
+		append(&_n6, frigg.Safe_String("  load(["))
+		for module, i in modules {
+			_Env7 :: struct {
+				name: type_of(name),
+				color: type_of(color),
+				config: type_of(config),
+				modules: type_of(modules),
+				module: type_of(module),
+				i: type_of(i),
+			}
+			_env7 := new_clone(_Env7{name = name, color = color, config = config, modules = modules, module = module, i = i}, allocator)
+			if i > 0 {
+				append(&_n6, frigg.Safe_String(", "))
+			}
+			append(&_n6, frigg.Safe_String("\""))
+			append(&_n6, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:14
+				using _e := (^_Env7)(_p)
+				return frigg.to_node(module)
+			}, _env7})
+			append(&_n6, frigg.Safe_String("\""))
+		}
+		append(&_n6, frigg.Safe_String("]);\n"))
+	} else {
+		append(&_n6, frigg.Safe_String("  console.log(\"no modules\");\n"))
+	}
+	append(&_n1, frigg.element("script", nil, _n6[:], false, allocator))
+	append(&_n1, frigg.Safe_String("\n"))
+	if len(modules) > 1 {
+		_n8 := make([dynamic]frigg.Node, 0, 1, allocator)
+		for module in modules {
+			_Env9 :: struct {
+				name: type_of(name),
+				color: type_of(color),
+				config: type_of(config),
+				modules: type_of(modules),
+				module: type_of(module),
+			}
+			_env9 := new_clone(_Env9{name = name, color = color, config = config, modules = modules, module = module}, allocator)
+			_n10 := make([dynamic]frigg.Node, 0, 1, allocator)
+			append(&_n10, frigg.Code{proc(_p: rawptr) -> frigg.Node { // raw_code.frigg:19
+				using _e := (^_Env9)(_p)
+				return frigg.to_node(module)
+			}, _env9})
+			append(&_n8, frigg.element("li", nil, _n10[:], false, allocator))
+		}
+		append(&_n1, frigg.element("ul", nil, _n8[:], false, allocator))
+	}
+	append(&_n1, frigg.Safe_String("\n"))
+	return frigg.Template{"raw_code", _n1[:]}
+}
+
 // Generated from templates/static.frigg
 static :: proc(allocator := context.temp_allocator) -> frigg.Template {
 	_n0 := make([dynamic]frigg.Node, 0, 3, allocator)

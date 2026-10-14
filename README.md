@@ -87,8 +87,10 @@ children. All static text (including HTML comments and `<!DOCTYPE>`) becomes
 
 - Tags must be closed explicitly, except void elements (`<br>`, `<img>`...).
   `<div />` is the same as `<div></div>`.
-- The content of `<script>` and `<style>` is raw text: braces are not code.
-- Write `\{` for a literal `{`.
+- The content of `<script>` and `<style>` is raw text: single braces are
+  not code there, only `{{code}}` is (see below).
+- Write `\{` for a literal `{`, and `\{{` for a literal `{{` in `<script>`
+  and `<style>`.
 
 ### Code
 
@@ -102,6 +104,27 @@ The result goes through `frigg.to_node`:
 | `frigg.Safe_String` | verbatim |
 | `frigg.Node`, `frigg.Template`, `^frigg.Element`, `[]frigg.Node` | that subtree |
 | anything else | formatted with `core:fmt`, then HTML escaped |
+
+`{{expression}}` is the same as `{expression}`, and can also be used inside
+`<script>` and `<style>`, where single braces are left alone. So can the
+double brace forms of the block tags (see [Control flow](#control-flow)):
+
+```html
+<style>
+  .banner { color: {{color}}; }
+</style>
+<script>
+  const config = {{frigg.Safe_String(config_json)}};
+  if (config.debug) { console.log("\{{ is a literal there") }
+  {{for module in modules}}
+  load("{{module}}");
+  {{/for}}
+</script>
+```
+
+Values are HTML escaped there too, which is rarely what a script needs:
+pass trusted, already encoded content (such as JSON) as a `frigg.Safe_String`,
+and make sure it cannot contain `</script>`.
 
 ### Attributes
 
@@ -119,6 +142,11 @@ The result goes through `frigg.to_node`:
 {for item, i in items} ... {/for}
 <li :for={item in items} :if={item.visible}>...</li>
 ```
+
+Every block tag can also be written with double braces (`{{if condition}}`,
+`{{else}}`, `{{/for}}`...), and the two forms can be mixed. Inside `<script>`
+and `<style>`, only the double brace forms are recognized, and a block opened
+there must be closed before the end of the element.
 
 Conditions and loop headers are plain Odin (`{if value, ok := m[key]; ok}`,
 `{for i in 0..<10}`). When an element has both, `:for` loops and `:if` filters

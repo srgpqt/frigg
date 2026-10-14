@@ -55,6 +55,22 @@ parse_errors :: proc(t: ^testing.T) {
 		{"{for x in xs}a{/if}", "1:15: expected {/for} before {/if}"},
 		{"x {# args: a: int #}", "1:3: the 'args:' comment must be at the very start of the template"},
 		{"{# args: 1x: int #}", "1:1: cannot find the name of template argument '1x: int'"},
+		{"{{x}", "1:1: '{{' must be closed by '}}'"},
+		{"{{x} }", "1:1: '{{' must be closed by '}}'"},
+		{"a\n{{x", "2:1: unterminated '{{'"},
+		{"{{ }}", "1:1: empty {{}}"},
+		{"{{if x}}", "1:1: {if} is never closed, expected {/if}"},
+		{"{{/for}}", "1:1: {/for} without a matching {for}"},
+		{"{{for}}x{{/for}}", "1:1: {for} needs a loop header, e.g. {for item in items}"},
+		{"<p a={{x}>", "1:6: '{{' must be closed by '}}'"},
+		{"<script>{{x</script>", "1:9: unterminated '{{'"},
+		{"<style>{{}}</style>", "1:8: empty {{}}"},
+		{"<script>{{ \"</script>\" }}</script>", "1:9: '{{' is not closed before the end of the element"},
+		{"<script>{{else}}</script>", "1:9: {else} without a matching {if}"},
+		{"<script>{{if x}}</script>", "1:9: {if} is never closed, expected {/if}"},
+		{"<style>{{for x in xs}}{{/if}}</style>", "1:23: expected {/for} before {/if}"},
+		{"{{if x}}<script>{{/if}}</script>", "1:17: {/if} without a matching {if}"},
+		{"{{for x in xs}}<script>{{/for}}</script>", "1:24: {/for} without a matching {for}"},
 	}
 	for c in cases {
 		_, error := parse(c[0])
@@ -391,4 +407,115 @@ end_to_end_templates_are_up_to_date :: proc(t: ^testing.T) {
 		source == #load("../tests/templates.odin", string),
 		"tests/templates.odin is stale, regenerate it with: ./bin/frigg -r -import:./frigg tests/templates",
 	)
+}
+
+@(test)
+double_braces :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
+	tmpl, error := parse("{{a}}<p x={{ b }} {{c}} y={d}>{{Point{1, 2}.x}}{{ \"}}\" }}</p>\n{{e}}")
+	testing.expect_value(t, error, "")
+	if !testing.expect_value(t, len(tmpl.nodes), 4) {
+		return
+	}
+	testing.expect_value(t, tmpl.nodes[0].(Expr), Expr{"a", 1})
+	elem := tmpl.nodes[1].(^Element)
+	expected := []Attr{{"x", .Expr, "b", 1}, {"", .Spread, "c", 1}, {"y", .Expr, "d", 1}}
+	if testing.expect_value(t, len(elem.attrs), len(expected)) {
+		for attr, i in expected {
+			testing.expect_value(t, elem.attrs[i], attr)
+		}
+	}
+	if testing.expect_value(t, len(elem.children), 2) {
+		testing.expect_value(t, elem.children[0].(Expr).code, "Point{1, 2}.x")
+		testing.expect_value(t, elem.children[1].(Expr).code, `"}}"`)
+	}
+	testing.expect_value(t, tmpl.nodes[3].(Expr), Expr{"e", 2})
+
+	// Generated exactly like single braces.
+	testing.expect_value(t, compile(t, "{# args: a: int #}\n{{a}}"), compile(t, "{# args: a: int #}\n{a}"))
+}
+
+@(test)
+double_braces_in_raw_text :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
+	tmpl, error := parse("<script>\nvar a = {{a}};\nif (x) { y({b}) } \\{{z}} \\{ {{ c }}</script><style>p { color: {{color}}; }</style><script>{{d}}</script>")
+	testing.expect_value(t, error, "")
+	if !testing.expect_value(t, len(tmpl.nodes), 3) {
+		return
+	}
+	script := tmpl.nodes[0].(^Element)
+	if testing.expect_value(t, len(script.children), 4) {
+		testing.expect_value(t, script.children[0].(Text).text, "\nvar a = ")
+		testing.expect_value(t, script.children[1].(Expr), Expr{"a", 2})
+		testing.expect_value(t, script.children[2].(Text).text, ";\nif (x) { y({b}) } {{z}} \\{ ")
+		testing.expect_value(t, script.children[3].(Expr), Expr{"c", 3})
+	}
+	style := tmpl.nodes[1].(^Element)
+	if testing.expect_value(t, len(style.children), 3) {
+		testing.expect_value(t, style.children[0].(Text).text, "p { color: ")
+		testing.expect_value(t, style.children[1].(Expr).code, "color")
+		testing.expect_value(t, style.children[2].(Text).text, "; }")
+	}
+	only_code := tmpl.nodes[2].(^Element)
+	if testing.expect_value(t, len(only_code.children), 1) {
+		testing.expect_value(t, only_code.children[0].(Expr).code, "d")
+	}
+
+	// The code of raw text elements is captured like any other.
+	source := compile(t, "{# args: color: string #}\n<style>p { color: {{color}}; }</style>")
+	expect_contains(t, source, "_Env0 :: struct {\n\t\tcolor: type_of(color),\n\t}\n")
+	expect_contains(t, source, "\t\treturn frigg.to_node(color)\n\t}, _env0})")
+}
+
+@(test)
+double_brace_blocks :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
+	// Double braces are interchangeable with single braces for block tags.
+	single := compile(t, "{# args: xs: []int #}\n{if len(xs) > 1}{for x in xs}<b>{x}</b>{/for}{else if xs == nil}nil{else}few{/if}")
+	double := compile(t, "{# args: xs: []int #}\n{{if len(xs) > 1}}{{for x in xs}}<b>{{x}}</b>{{/for}}{{else if xs == nil}}nil{{else}}few{{/if}}")
+	mixed := compile(t, "{# args: xs: []int #}\n{{if len(xs) > 1}}{for x in xs}<b>{x}</b>{{/for}}{else if xs == nil}nil{{else}}few{/if}")
+	testing.expect_value(t, double, single)
+	testing.expect_value(t, mixed, single)
+}
+
+@(test)
+double_brace_blocks_in_raw_text :: proc(t: ^testing.T) {
+	context.allocator = context.temp_allocator
+	src := "<script>\n  {{if debug}}\n  log({{level}});\n  {{else}}\n  {if quiet} {}\n  {{/if}}\n  {{for m in modules}}load(\"{{m}}\");{{/for}}\n</script>"
+	tmpl, error := parse(src)
+	testing.expect_value(t, error, "")
+	script := tmpl.nodes[0].(^Element)
+	if !testing.expect_value(t, len(script.children), 5) {
+		return
+	}
+	testing.expect_value(t, script.children[0].(Text).text, "\n")
+
+	branches := script.children[1].(^If).branches
+	if testing.expect_value(t, len(branches), 2) {
+		testing.expect_value(t, branches[0].cond, "debug")
+		then := branches[0].body
+		if testing.expect_value(t, len(then), 3) {
+			testing.expect_value(t, then[0].(Text).text, "  log(")
+			testing.expect_value(t, then[1].(Expr), Expr{"level", 3})
+			testing.expect_value(t, then[2].(Text).text, ");\n")
+		}
+		// Single braces stay text inside raw text elements.
+		testing.expect_value(t, branches[1].is_else, true)
+		testing.expect_value(t, branches[1].body[0].(Text).text, "  {if quiet} {}\n")
+	}
+
+	// Standalone block lines are removed, inline ones are left alone.
+	testing.expect_value(t, script.children[2].(Text).text, "  ")
+	loop := script.children[3].(^For)
+	testing.expect_value(t, loop.header, "m in modules")
+	if testing.expect_value(t, len(loop.body), 3) {
+		testing.expect_value(t, loop.body[0].(Text).text, "load(\"")
+		testing.expect_value(t, loop.body[1].(Expr).code, "m")
+		testing.expect_value(t, loop.body[2].(Text).text, "\");")
+	}
+	testing.expect_value(t, script.children[4].(Text).text, "\n")
+
+	// Loop variables are captured inside raw text elements too.
+	source := compile(t, "{# args: xs: []string #}\n<style>{{for x in xs}}.{{x}} {}{{/for}}</style>")
+	expect_contains(t, source, "\tfor x in xs {\n\t\t_Env2 :: struct {\n\t\t\txs: type_of(xs),\n\t\t\tx: type_of(x),\n\t\t}\n")
 }

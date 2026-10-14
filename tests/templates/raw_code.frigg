@@ -1,0 +1,19 @@
+{# args: name: string, color: string, config: frigg.Safe_String, modules: []string = nil #}
+<p title={{name}} {{ []frigg.Attribute{{"lang", true}} }}>{{name}} = {name}</p>
+<style>
+  p { color: {{color}}; }
+  {{for module in modules}}
+  .{{module}} { display: block; }
+  {{/for}}
+</style>
+<script>
+  const config = {{config}};
+  const name = "{{ name }}";
+  if (config) { console.log("\{{literal}}") }
+  {{if len(modules) > 0}}
+  load([{{for module, i in modules}}{{if i > 0}}, {{/if}}"{{module}}"{{/for}}]);
+  {{else}}
+  console.log("no modules");
+  {{/if}}
+</script>
+{{if len(modules) > 1}}<ul>{{for module in modules}}<li>{{module}}</li>{{/for}}</ul>{{/if}}
